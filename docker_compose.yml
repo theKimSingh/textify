@@ -3,11 +3,23 @@ services:
     build: .
     ports:
       - "3000:3000"
-    volumes:
-      - .:/app
     depends_on:
       - db
       - redis
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgres://user:password@db:5432/my_database
+
+  worker:
+    build: .
+    depends_on:
+      - db
+      - redis
+    environment:
+      - WORKER=1
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgres://user:password@db:5432/my_database
+    restart: always
 
   db:
     image: postgres:15

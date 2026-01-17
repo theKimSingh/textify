@@ -21,6 +21,10 @@ type Server struct {
 }
 
 func main() {
+	if os.Getenv("WORKER") == "1" {
+		workerMain()
+		return
+	}
 	ctx := context.Background()
 	db := InitDB(ctx)
 	defer db.Close()
