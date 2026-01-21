@@ -4,23 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 )
 
 type Server struct {
-	db      *pgxpool.Pool
-	rclient *redis.Client
+	db      DB
+	rclient RedisClient
 }
 
 func main() {
+
+	// TODO: in production, use separate worker binary or env var to distinguish
+	// for simplicity, we run worker in same binary here
 	if os.Getenv("WORKER") == "1" {
 		workerMain()
 		return
@@ -37,10 +38,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("invalid REDIS_URL: %v", err)
 	}
-	rclient := redis.NewClient(opt)
-	defer rclient.Close()
+	rclientReal := redis.NewClient(opt)
+	defer rclientReal.Close()
 
-	srv := &Server{db: db, rclient: rclient}
+	rclient := NewGoRedisClient(rclientReal)
+	srv := &Server{db: NewPGXDB(db), rclient: rclient}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -85,7 +87,7 @@ func (s *Server) handleTextify(w http.ResponseWriter, r *http.Request) {
 	p, _ := json.Marshal(payload)
 
 	// push to Redis list
-	if err := s.rclient.LPush(r.Context(), "ocr-tasks", p).Err(); err != nil {
+	if err := s.rclient.LPush(s.rclient.Context(), "ocr-tasks", p); err != nil {
 		http.Error(w, "failed to enqueue task", http.StatusInternalServerError)
 		return
 	}
