@@ -6,7 +6,12 @@
     "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
-    "elysia": "latest"
+    "bullmq": "^5.67.1",
+    "drizzle-kit": "^0.31.8",
+    "drizzle-orm": "^0.45.1",
+    "elysia": "latest",
+    "ioredis": "^5.9.2",
+    "postgres": "^3.4.8"
   },
   "devDependencies": {
     "bun-types": "latest"
