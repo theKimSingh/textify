@@ -1,14 +1,13 @@
-FROM oven/bun:latest
-
-WORKDIR /app
-
-# Copy everything from current directory
+FROM golang:1.21-alpine AS build
+WORKDIR /src
+COPY go.mod ./
+RUN apk add --no-cache git
+RUN go mod download || true
 COPY . .
+RUN go build -o /app/textify ./src
 
-# Install dependencies
-RUN bun install
-
-# Elysia usually runs on 3000 by default
+FROM alpine:edge
+RUN apk add --no-cache ca-certificates
+COPY --from=build /app/textify /textify
 EXPOSE 3000
-
-CMD ["bun", "run", "src/index.ts"]
+ENTRYPOINT ["/textify"]
