@@ -62,6 +62,8 @@ func workerMain() {
 			log.Printf("request create error: %v", err)
 			continue
 		}
+
+
 		req.Header.Set("Content-Type", "application/json")
 		client := &http.Client{Timeout: 30 * time.Second}
 		resp, err := client.Do(req)
@@ -93,6 +95,7 @@ func workerMain() {
 			textContent = strings.Join(parts, " ")
 		}
 
+		
 		if _, err := db.Exec(ctx, "UPDATE ocr_results SET extracted_text=$1, status='completed' WHERE job_id=$2", textContent, payload.JobId); err != nil {
 			log.Printf("db update error: %v", err)
 			continue

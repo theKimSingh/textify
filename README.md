@@ -1,152 +1,110 @@
-# Textify
+# Textify (Go)
 
-A **production-ready OCR processing pipeline** built with **Go**, and a reliable background job system. This setup is designed for scalability, fault tolerance, and clean persistence.
-
----
-
-## Tech Stack
-
-* **Runtime:** [Go]
-* **Queue:** [BullMQ](https://docs.bullmq.io/) + Redis
-* **ORM:** [Drizzle ORM](https://orm.drizzle.team/)
-* **Database:** PostgreSQL
-* **OCR Engine:** [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR)
+A small OCR processing service written in Go. It accepts image URLs, enqueues OCR jobs into Redis, runs a background worker to call an OCR service, and persists results to PostgreSQL.
 
 ---
 
-## Quick Start
+## Requirements
 
-### 1. Clone & Install Dependencies
+- Go 1.21+
+- Redis
+- PostgreSQL
+- An OCR HTTP endpoint (the project calls `http://localhost:8866/predict/ocr_system` by default)
+
+---
+
+## Quick Start (Local)
+
+1. Set environment variables (example):
 
 ```bash
-# Install dependencies
-bun install
+export DATABASE_URL="postgres://user:password@localhost:5432/my_database"
+export REDIS_URL="redis://localhost:6379"
+export PORT=3000
 ```
 
----
-
-### 2. Environment Configuration
-
-Create a `.env` file in the project root:
-
-```env
-DATABASE_URL="postgres://postgres:password@localhost:5432/ocr_db"
-REDIS_URL="redis://localhost:6379"
-PADDLE_OCR_URL="http://localhost:8866/predict/ocr_system"
-```
-
----
-
-### 3. Spin Up Infrastructure (Docker)
-
-If you don’t already have PostgreSQL, Redis, or PaddleOCR running locally:
+2. Build and run the server:
 
 ```bash
-# Redis
-docker run -d --name redis-ocr -p 6379:6379 redis
+# Build
+go build -o textify ./src
 
-# PostgreSQL
-docker run -d --name postgres-ocr \
-  -e POSTGRES_PASSWORD=password \
-  -e POSTGRES_DB=ocr_db \
-  -p 5432:5432 postgres
+# Run server
+./textify
 
-# PaddleOCR (CPU version)
-docker run -d --name paddle-ocr \
-  -p 8866:8866 paddlepaddle/paddleocr:latest-cpu-2.0-serv
+# Or run directly
+go run ./src
 ```
 
----
-
-### 4. Database Migration
-
-Sync your Drizzle schema with PostgreSQL:
+3. Run the worker (separate terminal):
 
 ```bash
-bunx drizzle-kit push
+WORKER=1 go run ./src
 ```
 
 ---
 
-### 5. Start the Application
+## Docker (Compose)
+
+The repository includes `docker_compose.yml` that starts `server`, `worker`, `db`, `redis`, and `minio` services. To start everything:
 
 ```bash
-bun run index.ts
+docker compose up --build
+```
+
+The API will be available on port 3000.
+
+---
+
+## API
+
+- Health: `GET /`
+- Queue an image: `POST /textify` with JSON body `{ "imageUrl": "https://..." }`
+- Get result: `GET /results/:jobId`
+
+Example `curl` to enqueue:
+
+```bash
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"imageUrl":"https://example.com/doc.png"}' \
+  http://localhost:3000/textify
 ```
 
 ---
 
-## API Documentation
+## Tests
 
-### Queue an Image
+Run unit tests:
 
-Submit an image URL to be processed asynchronously.
-
-**Health Check Endpoint**
-
-```
-GET /
-```
-
-**Main Endpoint**
-
-```
-POST /textify
-```
-
-**Request Body**
-
-```json
-{
-  "imageUrl": "https://example.com/document.png"
-}
+```bash
+go test ./...
 ```
 
 ---
 
-### Check Status / Retrieve Results
+## Schema
 
-Fetch OCR results using the returned `jobId`.
-
-**Endpoint**
-
-```
-GET /results/:jobId
-```
-
-**Response Example**
-
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "jobId": "12",
-  "imageUrl": "https://example.com/document.png",
-  "extractedText": "The quick brown fox...",
-  "status": "completed",
-  "createdAt": "2026-01-26T10:00:00Z"
-}
-```
+The app automatically ensures a simple `ocr_results` table exists with the following columns:
+- `id` (uuid), `job_id`, `image_url`, `extracted_text`, `status`, `created_at`.
 
 ---
 
-## 📁 Project Structure
+## Project layout
 
 ```
 .
-├── db.ts              # Database connection singleton
-├── schema.ts          # Drizzle PostgreSQL schema
-├── index.ts           # Elysia API + BullMQ worker
-├── drizzle.config.ts  # Drizzle migration configuration
-├── .env               # Environment variables
-└── package.json       # Dependencies & scripts
+├── Dockerfile
+├── docker_compose.yml
+├── go.mod
+├── src/
+│   ├── main.go       # HTTP server + worker mode switch
+│   ├── worker.go     # worker loop (BLPOP)
+│   ├── db.go         # DB init & schema
+│   ├── redis_adapter.go
+│   ├── db_adapter.go
+│   └── main_test.go  # unit tests
 ```
 
 ---
 
-## Notes
-
-* OCR jobs are processed **asynchronously** via BullMQ workers.
-* Failed jobs can be retried automatically using BullMQ retry strategies.
-* PaddleOCR runs as a separate service and can be scaled independently.
-
----
+If you want, I can add a short `Makefile` or GitHub Actions workflow to run tests and build the image.
