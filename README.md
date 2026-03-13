@@ -1,13 +1,12 @@
 # Textify
 
-A **production-ready OCR processing pipeline** built with **Elysia**, **PaddleOCR**, and a reliable background job system. This setup is designed for scalability, fault tolerance, and clean persistence.
+A **production-ready OCR processing pipeline** built with **Go**, and a reliable background job system. This setup is designed for scalability, fault tolerance, and clean persistence.
 
 ---
 
 ## Tech Stack
 
-* **Runtime:** [Bun](https://bun.sh)
-* **Framework:** [ElysiaJS](https://elysiajs.com/)
+* **Runtime:** [Go]
 * **Queue:** [BullMQ](https://docs.bullmq.io/) + Redis
 * **ORM:** [Drizzle ORM](https://orm.drizzle.team/)
 * **Database:** PostgreSQL
