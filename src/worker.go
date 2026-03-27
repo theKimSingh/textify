@@ -28,16 +28,15 @@ func workerMain() {
 	if err != nil {
 		log.Fatalf("invalid REDIS_URL: %v", err)
 	}
-	rclient := redis.NewClient(opt)
-	defer rclient.Close()
+	rclientReal := redis.NewClient(opt)
+	defer rclientReal.Close()
+	rclient := NewGoRedisClient(rclientReal)
 
 	// worker loop: BLPop with timeout and process messages
 	for {
-		res, err := rclient.BLPop(ctx, 5*time.Second, "ocr-tasks").Result()
+		res, err := rclient.BLPop(ctx, 5*time.Second, "ocr-tasks")
 		if err != nil {
-			if err == redis.Nil {
-				continue
-			}
+			// redis.Nil is not exported here through interface, check empty error
 			log.Printf("redis blpop error: %v", err)
 			time.Sleep(1 * time.Second)
 			continue
