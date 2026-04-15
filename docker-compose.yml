@@ -2,7 +2,7 @@ services:
   server:
     build: .
     ports:
-      - "3000:3000"
+      - "3001:3001" # TODO: temp fix/conflicts with Docker
     depends_on:
       - db
       - redis
