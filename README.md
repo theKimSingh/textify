@@ -105,6 +105,3 @@ The app automatically ensures a simple `ocr_results` table exists with the follo
 │   └── main_test.go  # unit tests
 ```
 
----
-
-If you want, I can add a short `Makefile` or GitHub Actions workflow to run tests and build the image.
