@@ -1,0 +1,1 @@
+PaddleOCR directory in Python. See main README.md for details.

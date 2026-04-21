@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -54,7 +55,33 @@ func workerMain() {
 			continue
 		}
 
-		// call OCR service
+		// If configured to use PaddleOCR, call local Python runner script.
+		if strings.ToLower(os.Getenv("OCR_PROVIDER")) == "paddle" {
+			cmd := exec.Command("python3", "scripts/paddleocr_runner.py", payload.ImageUrl)
+			out, err := cmd.Output()
+			if err != nil {
+				updateStatus(ctx, db, payload.JobId, "failed")
+				log.Printf("paddleocr runner error: %v", err)
+				continue
+			}
+
+			// Expect the script to return a JSON array of strings
+			var texts []string
+			if err := json.Unmarshal(out, &texts); err != nil {
+				updateStatus(ctx, db, payload.JobId, "failed")
+				log.Printf("paddleocr parse error: %v; output=%s", err, string(out))
+				continue
+			}
+			textContent := strings.Join(texts, " ")
+
+			if _, err := db.Exec(ctx, "UPDATE ocr_results SET extracted_text=$1, status='completed' WHERE job_id=$2", textContent, payload.JobId); err != nil {
+				log.Printf("db update error: %v", err)
+				continue
+			}
+			continue
+		}
+
+		// call HTTP OCR service (legacy/default)
 		reqBody, _ := json.Marshal(map[string][]string{"images": {payload.ImageUrl}})
 		req, err := http.NewRequestWithContext(ctx, "POST", "http://localhost:8866/predict/ocr_system", bytes.NewReader(reqBody))
 		if err != nil {
@@ -95,7 +122,6 @@ func workerMain() {
 			textContent = strings.Join(parts, " ")
 		}
 
-		
 		if _, err := db.Exec(ctx, "UPDATE ocr_results SET extracted_text=$1, status='completed' WHERE job_id=$2", textContent, payload.JobId); err != nil {
 			log.Printf("db update error: %v", err)
 			continue
